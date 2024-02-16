@@ -1,11 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:table_calendar/table_calendar.dart';
+
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+FlutterLocalNotificationsPlugin();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+
+  // Иницијализација на локални нотификации
+  await initLocalNotifications();
+
   runApp(MyApp());
+}
+
+Future<void> initLocalNotifications() async {
+  final InitializationSettings initializationSettings =
+  InitializationSettings(
+    android: AndroidInitializationSettings('app_icon'), // Име на иконата во mipmap
+    iOS: IOSInitializationSettings(),
+  );
+
+  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
 }
 
 class MyApp extends StatelessWidget {
@@ -60,7 +78,20 @@ class AuthenticationScreen extends StatelessWidget {
   }
 }
 
-class TermScheduleScreen extends StatelessWidget {
+class TermScheduleScreen extends StatefulWidget {
+  @override
+  _TermScheduleScreenState createState() => _TermScheduleScreenState();
+}
+
+class _TermScheduleScreenState extends State<TermScheduleScreen> {
+  CalendarController _calendarController;
+
+  @override
+  void initState() {
+    super.initState();
+    _calendarController = CalendarController();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -75,7 +106,49 @@ class TermScheduleScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: TermList(),
+      body: Column(
+        children: [
+          TableCalendar(
+            calendarController: _calendarController,
+            events: {
+              DateTime.now(): ['Колоквиум по математика'],
+              DateTime.now().add(Duration(days: 2)): ['Испит по програмирање'],
+              DateTime.now().add(Duration(days: 4)): ['Консултации по предмет X'],
+            },
+            calendarStyle: CalendarStyle(
+              todayColor: Colors.blue,
+              selectedColor: Theme.of(context).accentColor,
+              todayStyle: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18.0,
+                color: Colors.white,
+              ),
+            ),
+            daysOfWeekStyle: DaysOfWeekStyle(
+              weekdayStyle: TextStyle(
+                fontWeight: FontWeight.bold,
+              ),
+              weekendStyle: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.red,
+              ),
+            ),
+            eventDayStyle: EventDayStyle(
+              textStyle: TextStyle(
+                color: Colors.black,
+              ),
+            ),
+            onDaySelected: (date, events, holidays) {
+              print(date);
+              print(events);
+              print(holidays);
+            },
+          ),
+          Expanded(
+            child: TermList(),
+          ),
+        ],
+      ),
     );
   }
 }
