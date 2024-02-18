@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:location/location.dart';
+import 'package:geoflutterfire/geoflutterfire.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 FlutterLocalNotificationsPlugin();
@@ -24,6 +28,14 @@ Future<void> initLocalNotifications() async {
   );
 
   await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+
+  // Иницијализација на локациски сервиси
+  Location location = Location();
+  await location.serviceEnabled();
+  location.requestPermission();
+
+  // Иницијализација на локациски потсетници
+  GeoFlutterFire geo = GeoFlutterFire();
 }
 
 class MyApp extends StatelessWidget {
@@ -163,13 +175,26 @@ class TermList extends StatelessWidget {
       ),
       itemCount: 5, // Пример број на термини
       itemBuilder: (context, index) {
-        return TermCard();
+        // Пример настан со локација (координати)
+        EventWithLocation event = EventWithLocation(
+          name: 'Предмет Име',
+          dateTime: DateTime.now(),
+          location: LocationData.fromMap({
+            'latitude': 41.8781, // Пример: Координати за Њујорк
+            'longitude': -87.6298,
+          }),
+        );
+        return TermCard(event: event);
       },
     );
   }
 }
 
 class TermCard extends StatelessWidget {
+  final EventWithLocation event;
+
+  TermCard({required this.event});
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -177,16 +202,84 @@ class TermCard extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            'Предмет Име',
+            event.name,
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 8),
           Text(
-            'Датум и време',
+            'Датум и време: ${event.dateTime}',
             style: TextStyle(color: Colors.grey),
+          ),
+          SizedBox(height: 8),
+          Container(
+            height: 150, // Пример висина на мапата
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: LatLng(
+                  event.location.latitude,
+                  event.location.longitude,
+                ),
+                zoom: 15,
+              ),
+              markers: {
+                Marker(
+                  markerId: MarkerId('event_location'),
+                  position: LatLng(
+                    event.location.latitude,
+                    event.location.longitude,
+                  ),
+                ),
+              },
+              polylines: {
+                Polyline(
+                  polylineId: PolylineId('route_to_event'),
+                  color: Colors.blue,
+                  points: [], // Празна листа, ќе се дополни со координати
+                ),
+              },
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              // Пресметка на најкратка рута
+              PolylinePoints polylinePoints = PolylinePoints();
+              List<PointLatLng> result = await polylinePoints.getRouteBetweenCoordinates(
+                'AIzaSyA4YZO6pW_3k0veX333TD967ru8wT3UGwY',
+                event.location.latitude,
+                event.location.longitude,
+                // Дополнителни точки може да се додадат за рутата
+              );
+
+              // Ажурирање на полилинијата на мапата со новите координати
+              if (result.isNotEmpty) {
+                List<LatLng> routeCoordinates = result
+                    .map((point) => LatLng(point.latitude, point.longitude))
+                    .toList();
+
+                setState(() {
+                  Polyline polyline = Polyline(
+                    polylineId: PolylineId('route_to_event'),
+                    color: Colors.blue,
+                    points: routeCoordinates,
+                  );
+
+                  // Додајте полилинијата на мапата
+                  _polylines.add(polyline);
+                });
+              }
+            },
+            child: Text('Прикажи најкратка рута'),
           ),
         ],
       ),
     );
   }
+}
+
+class EventWithLocation {
+  final String name;
+  final DateTime dateTime;
+  final LocationData location;
+
+  EventWithLocation({required this.name, required this.dateTime, required this.location});
 }
